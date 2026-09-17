@@ -54,6 +54,8 @@ devlinux = [
 ]
 test = [
     "pytest==8.4.0",
+    # test-only: used by tests/minimal_login, never by the shipped package
+    "srp==1.0.22",
     "mock==5.2.0",
     "freezegun==1.5.2",
     "vcrpy==7.0.0",

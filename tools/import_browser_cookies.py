@@ -1,0 +1,146 @@
+#!/usr/bin/env python
+"""Build an icloudpd cookie jar from cookies copied out of a browser.
+
+Run this on a trusted machine after signing in at icloud.com. Your Apple ID
+password never reaches this script or any downloader code — it goes only to
+Apple, through the browser.
+
+Where to get the values: devtools -> Application -> Cookies ->
+https://www.icloud.com. The cookies are HttpOnly, so page JavaScript cannot
+read them, but devtools shows them.
+
+    python tools/import_browser_cookies.py \
+        --username you@example.com \
+        --cookie-directory ./session \
+        --from-json cookies.json
+
+cookies.json maps cookie names to values, e.g.
+
+    {
+      "X-APPLE-WEBAUTH-LOGIN": "v=1:t=...",
+      "X-APPLE-WEBAUTH-VALIDATE": "v=1:t=...",
+      "X-APPLE-WEBAUTH-HSA-LOGIN": "v=2:t=...",
+      "X-APPLE-UNIQUE-CLIENT-ID": "..."
+    }
+
+Prefer the JSON file over --cookie on the command line: values are bearer
+credentials and a command line ends up in your shell history. Delete the JSON
+file afterwards, and never commit it — this repository is public.
+
+This script makes no network connections and imports nothing outside the
+standard library.
+"""
+
+import argparse
+import json
+import os
+import re
+import sys
+from http.cookiejar import Cookie, LWPCookieJar
+
+DOMAIN = ".icloud.com"
+
+# Names icloudpd's session actually sends. Others are accepted with a warning,
+# since Apple has changed this set before.
+KNOWN_COOKIES = (
+    "X-APPLE-WEBAUTH-LOGIN",
+    "X-APPLE-WEBAUTH-VALIDATE",
+    "X-APPLE-WEBAUTH-HSA-LOGIN",
+    "X-APPLE-UNIQUE-CLIENT-ID",
+)
+
+
+def cookiejar_path(cookie_directory: str, username: str) -> str:
+    """Mirror PyiCloudService.cookiejar_path so icloudpd finds the jar."""
+    sanitised = "".join(c for c in username if re.match(r"\w", c))
+    return os.path.join(cookie_directory, sanitised)
+
+
+def make_cookie(name: str, value: str) -> Cookie:
+    return Cookie(
+        version=0,
+        name=name,
+        value=value,
+        port=None,
+        port_specified=False,
+        domain=DOMAIN,
+        domain_specified=True,
+        domain_initial_dot=True,
+        path="/",
+        path_specified=True,
+        secure=True,
+        expires=None,
+        discard=True,
+        comment=None,
+        comment_url=None,
+        rest={},
+    )
+
+
+def parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("--username", required=True, help="Apple ID email address")
+    parser.add_argument(
+        "--cookie-directory", required=True, help="Directory to write the cookie jar into"
+    )
+    parser.add_argument(
+        "--from-json",
+        help="JSON file mapping cookie names to values (preferred: keeps secrets out of shell history)",
+    )
+    parser.add_argument(
+        "--cookie",
+        nargs=2,
+        action="append",
+        metavar=("NAME", "VALUE"),
+        default=[],
+        help="A single cookie, repeatable. Ends up in shell history — prefer --from-json.",
+    )
+    return parser.parse_args(argv)
+
+
+def collect_cookies(args: argparse.Namespace) -> dict[str, str]:
+    cookies: dict[str, str] = {}
+    if args.from_json:
+        with open(args.from_json, encoding="utf-8") as handle:
+            loaded = json.load(handle)
+        if not isinstance(loaded, dict):
+            raise SystemExit(f"{args.from_json} must contain a JSON object of name -> value")
+        cookies.update({str(k): str(v) for k, v in loaded.items()})
+    cookies.update({name: value for name, value in args.cookie})
+    return cookies
+
+
+def main(argv: list[str]) -> int:
+    args = parse_args(argv)
+    cookies = collect_cookies(args)
+
+    if not cookies:
+        raise SystemExit("No cookies given. Use --from-json or --cookie.")
+
+    missing = [name for name in KNOWN_COOKIES if name not in cookies]
+    if missing:
+        print(f"warning: expected cookies not supplied: {', '.join(missing)}", file=sys.stderr)
+    unexpected = [name for name in cookies if name not in KNOWN_COOKIES]
+    if unexpected:
+        print(f"note: passing through additional cookies: {', '.join(unexpected)}", file=sys.stderr)
+
+    os.makedirs(args.cookie_directory, mode=0o700, exist_ok=True)
+    path = cookiejar_path(args.cookie_directory, args.username)
+
+    jar = LWPCookieJar(filename=path)
+    for name, value in cookies.items():
+        jar.set_cookie(make_cookie(name, value))
+    jar.save(ignore_discard=True, ignore_expires=True)
+    os.chmod(path, 0o600)
+
+    print(f"Wrote {len(cookies)} cookies to {path}")
+    print("These cookies grant access to your iCloud photo library. Treat them as secrets:")
+    print("  - do not commit them (this repository is public)")
+    print("  - delete any JSON file you copied them from")
+    print(f"Verify with: icloudpd --username {args.username} "
+          f"--cookie-directory {args.cookie_directory} --list-albums")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

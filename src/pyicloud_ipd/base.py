@@ -236,33 +236,42 @@ class PyiCloudService:
 
     def authenticate(self) -> None:
         """
-        Attaches to iCloud using the stored session only.
+        Attaches to iCloud using stored credentials only.
 
-        Tries the saved session token first, then the trust token, both of
-        which live in the session file. If neither works there is no fallback:
-        this build cannot log in, so it raises instead of asking for a
-        password.
+        The primary path is the cookie jar: /validate authenticates purely from
+        the X-APPLE-WEBAUTH-* cookies, so a jar exported from a browser session
+        is enough and no session file is needed. If those cookies are rejected
+        and a session file with a session token happens to be present, the trust
+        token is tried as a fallback. There is no further fallback: this build
+        cannot log in, so it raises rather than asking for a password.
         """
 
-        if not self.session_data.get("session_token"):
+        if not path.exists(self.cookiejar_path) and not self.session_data.get("session_token"):
             raise PyiCloudFailedLoginException(
-                f"No session token found in {self.session_path}. Create a session with the "
-                "upstream icloudpd --auth-only on a trusted machine and copy the session and "
-                "cookie files into the cookie directory."
+                f"No cookie jar at {self.cookiejar_path} and no session token in "
+                f"{self.session_path}. Sign in at icloud.com in a browser and import the "
+                "X-APPLE-WEBAUTH-* cookies with tools/import_browser_cookies.py."
             )
 
         try:
             self.data = self._validate_token()
-        except PyiCloudAPIResponseException:
-            LOGGER.debug("Session token rejected, trying the trust token")
+        except PyiCloudAPIResponseException as error:
+            if not self.session_data.get("session_token"):
+                raise PyiCloudFailedLoginException(
+                    f"Could not authenticate from {self.cookiejar_path} and no session token was "
+                    f"found in {self.session_path}. Sign in at icloud.com in a browser and import "
+                    "the X-APPLE-WEBAUTH-* cookies with tools/import_browser_cookies.py."
+                ) from error
+
+            LOGGER.debug("Cookies rejected, trying the trust token")
             try:
                 self._authenticate_with_token()
-            except (PyiCloudAPIResponseException, PyiCloudFailedLoginException) as error:
+            except (PyiCloudAPIResponseException, PyiCloudFailedLoginException) as token_error:
                 raise PyiCloudFailedLoginException(
-                    "The stored session has expired and this build cannot log in. Re-run the "
-                    "upstream icloudpd with --auth-only on a trusted machine and copy the "
-                    "refreshed session and cookie files into the cookie directory."
-                ) from error
+                    "The stored session has expired and this build cannot log in. Sign in at "
+                    "icloud.com in a browser again and re-import the X-APPLE-WEBAUTH-* cookies "
+                    "with tools/import_browser_cookies.py."
+                ) from token_error
 
         # Is this needed?
         self.params.update({"dsid": self.data["dsInfo"]["dsid"]})

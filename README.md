@@ -28,19 +28,41 @@ Every request to iCloud is a read: `records/query`, `internal/records/query/batc
 `zones/list`, plus a streaming `GET` per asset. The CloudKit container is hardcoded to
 `com.apple.photos.cloud`.
 
-## Authentication
+## Authentication — browser cookies, no password anywhere
 
-This build cannot log in. It reuses a session created by the **unmodified upstream** tool on a
-trusted machine:
+This build cannot log in, and it does not need to. Apple's `/validate` endpoint authenticates from
+the `X-APPLE-WEBAUTH-*` cookies alone, so a browser session is enough:
+
+1. Sign in at [icloud.com](https://www.icloud.com) in your normal browser. Your password goes only
+   to Apple, through software you already trust — no downloader code is involved.
+2. Open devtools -> Application -> Cookies -> `https://www.icloud.com` and copy the values of
+   `X-APPLE-WEBAUTH-LOGIN`, `X-APPLE-WEBAUTH-VALIDATE`, `X-APPLE-WEBAUTH-HSA-LOGIN` and
+   `X-APPLE-UNIQUE-CLIENT-ID` into a JSON file.
+3. Import them:
 
 ```sh
-# on a trusted machine, with upstream icloudpd installed
-icloudpd --username you@example.com --auth-only --cookie-directory ./session
+python tools/import_browser_cookies.py \
+    --username you@example.com \
+    --cookie-directory ./session \
+    --from-json cookies.json
 ```
 
-Copy the two resulting files (`<username>` cookiejar and `<username>.session`) into this build's
-`--cookie-directory`. If the session and trust token are both expired, this build exits with
-status 1 and an explanatory message rather than prompting for anything.
+Then delete `cookies.json` — those cookies are bearer credentials for your photo library, and this
+repository is public. `tools/` is not packaged, so it never reaches the container.
+
+When the cookies expire the tool exits with status 1 and tells you to repeat the steps above. It
+never prompts for anything.
+
+### If a browser session proves too short-lived
+
+`tests/minimal_login/` holds a minimal SRP login extracted from upstream — auditable, and covered
+by `tests/test_minimal_login.py` against recorded fixtures. It yields a *trust token*, which lasts
+far longer than a browser session. It deliberately lives under `tests/`: it is not packaged, never
+installed in the container, and its `srp` dependency is test-only.
+
+```sh
+python -m tests.minimal_login --username you@example.com --cookie-directory ./session
+```
 
 ## Usage
 
