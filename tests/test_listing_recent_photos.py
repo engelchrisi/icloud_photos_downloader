@@ -29,8 +29,6 @@ class ListingRecentPhotosTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "5",
                 "--only-print-filenames",
@@ -82,8 +80,6 @@ class ListingRecentPhotosTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "5",
                 "--only-print-filenames",
@@ -109,8 +105,6 @@ class ListingRecentPhotosTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "5",
                 "--only-print-filenames",
@@ -160,8 +154,6 @@ class ListingRecentPhotosTestCase(TestCase):
                 [
                     "--username",
                     "jdoe@gmail.com",
-                    "--password",
-                    "password1",
                     "--recent",
                     "1",
                     "--only-print-filenames",

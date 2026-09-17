@@ -36,8 +36,6 @@ class DownloadVideoTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "4",
                 "--skip-photos",

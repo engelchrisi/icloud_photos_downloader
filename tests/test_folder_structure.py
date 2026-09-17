@@ -37,8 +37,6 @@ class FolderStructureTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "5",
                 "--only-print-filenames",
@@ -95,8 +93,6 @@ class FolderStructureTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "5",
                 "--only-print-filenames",
@@ -135,8 +131,6 @@ class FolderStructureTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "5",
                 "--only-print-filenames",
@@ -195,8 +189,6 @@ class FolderStructureTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "5",
                 "--only-print-filenames",

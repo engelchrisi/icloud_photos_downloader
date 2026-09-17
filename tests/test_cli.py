@@ -12,8 +12,6 @@ import pytest
 from icloudpd.cli import format_help, parse
 from icloudpd.config import GlobalConfig, UserConfig
 from icloudpd.log_level import LogLevel
-from icloudpd.mfa_provider import MFAProvider
-from icloudpd.password_provider import PasswordProvider
 from pyicloud_ipd.file_match import FileMatchPolicy
 from pyicloud_ipd.live_photo_mov_filename_policy import LivePhotoMovFilenamePolicy
 from pyicloud_ipd.raw_policy import RawTreatmentPolicy
@@ -50,11 +48,8 @@ class CliTestCase(TestCase):
         self.assertIn("--version", result)
         self.assertIn("--username", result)
         self.assertIn("--directory", result)
-        self.assertIn("--password-provider", result)
-        self.assertIn("--mfa-provider", result)
         self.assertIn("--size", result)
         self.assertIn("--live-photo-size", result)
-        self.assertIn("--auth-only", result)
         self.assertIn("--dry-run", result)
 
         # Test that option descriptions are present
@@ -83,70 +78,10 @@ class CliTestCase(TestCase):
                     no_progress_bar=False,
                     threads_num=1,
                     domain="com",
-                    watch_with_interval=None,
-                    password_providers=[
-                        PasswordProvider.PARAMETER,
-                        PasswordProvider.KEYRING,
-                        PasswordProvider.CONSOLE,
-                    ],
-                    mfa_provider=MFAProvider.CONSOLE,
                 ),
                 [],
             ),
             "--help",
-        )
-        self.assertEqual(
-            parse(["--mfa-provider", "weBui"]),
-            (
-                GlobalConfig(
-                    help=False,
-                    version=False,
-                    use_os_locale=False,
-                    only_print_filenames=False,
-                    log_level=LogLevel.DEBUG,
-                    no_progress_bar=False,
-                    threads_num=1,
-                    domain="com",
-                    watch_with_interval=None,
-                    password_providers=[
-                        PasswordProvider.PARAMETER,
-                        PasswordProvider.KEYRING,
-                        PasswordProvider.CONSOLE,
-                    ],
-                    mfa_provider=MFAProvider.WEBUI,
-                ),
-                [],
-            ),
-            "--mfa-provider weBui",
-        )
-        self.assertEqual(
-            parse(
-                [
-                    "--password-provider",
-                    "weBui",
-                    "--password-provider",
-                    "CoNSoLe",
-                    "--password-provider",
-                    "WeBuI",
-                ]
-            ),
-            (
-                GlobalConfig(
-                    help=False,
-                    version=False,
-                    use_os_locale=False,
-                    only_print_filenames=False,
-                    log_level=LogLevel.DEBUG,
-                    no_progress_bar=False,
-                    threads_num=1,
-                    domain="com",
-                    watch_with_interval=None,
-                    password_providers=[PasswordProvider.WEBUI, PasswordProvider.CONSOLE],
-                    mfa_provider=MFAProvider.CONSOLE,
-                ),
-                [],
-            ),
-            "password-providers",
         )
         self.assertEqual(
             parse(["--version", "--use-os-locale"]),
@@ -160,13 +95,6 @@ class CliTestCase(TestCase):
                     no_progress_bar=False,
                     threads_num=1,
                     domain="com",
-                    watch_with_interval=None,
-                    password_providers=[
-                        PasswordProvider.PARAMETER,
-                        PasswordProvider.KEYRING,
-                        PasswordProvider.CONSOLE,
-                    ],
-                    mfa_provider=MFAProvider.CONSOLE,
                 ),
                 [],
             ),
@@ -186,21 +114,12 @@ class CliTestCase(TestCase):
                     no_progress_bar=False,
                     threads_num=1,
                     domain="com",
-                    watch_with_interval=None,
-                    password_providers=[
-                        PasswordProvider.PARAMETER,
-                        PasswordProvider.KEYRING,
-                        PasswordProvider.CONSOLE,
-                    ],
-                    mfa_provider=MFAProvider.CONSOLE,
                 ),
                 [
                     UserConfig(
                         directory="abc",
                         username="u1",
-                        auth_only=False,
                         cookie_directory="~/.pyicloud",
-                        password=None,
                         sizes=[AssetVersionSize.ORIGINAL],
                         live_photo_size=LivePhotoVersionSize.ORIGINAL,
                         recent=None,
@@ -213,19 +132,8 @@ class CliTestCase(TestCase):
                         skip_live_photos=False,
                         xmp_sidecar=False,
                         force_size=False,
-                        auto_delete=False,
                         folder_structure="{:%Y/%m/%d}",
                         set_exif_datetime=False,
-                        smtp_username=None,
-                        smtp_password=None,
-                        smtp_host="smtp.gmail.com",
-                        smtp_port=587,
-                        smtp_no_tls=False,
-                        notification_email=None,
-                        notification_email_from=None,
-                        notification_script=None,
-                        delete_after_download=False,
-                        keep_icloud_recent_days=None,
                         dry_run=False,
                         keep_unicode_in_filenames=False,
                         live_photo_mov_filename_policy=LivePhotoMovFilenamePolicy.SUFFIX,
@@ -237,10 +145,8 @@ class CliTestCase(TestCase):
                     ),
                     UserConfig(
                         directory="def",
-                        auth_only=False,
                         cookie_directory="~/.pyicloud",
                         username="u2",
-                        password=None,
                         sizes=[AssetVersionSize.ORIGINAL],
                         live_photo_size=LivePhotoVersionSize.ORIGINAL,
                         recent=None,
@@ -253,19 +159,8 @@ class CliTestCase(TestCase):
                         skip_live_photos=False,
                         xmp_sidecar=False,
                         force_size=False,
-                        auto_delete=False,
                         folder_structure="{:%Y/%m/%d}",
                         set_exif_datetime=False,
-                        smtp_username=None,
-                        smtp_password=None,
-                        smtp_host="smtp.gmail.com",
-                        smtp_port=587,
-                        smtp_no_tls=False,
-                        notification_email=None,
-                        notification_email_from=None,
-                        notification_script=None,
-                        delete_after_download=False,
-                        keep_icloud_recent_days=None,
                         dry_run=False,
                         keep_unicode_in_filenames=False,
                         live_photo_mov_filename_policy=LivePhotoMovFilenamePolicy.SUFFIX,
@@ -302,21 +197,12 @@ class CliTestCase(TestCase):
                     no_progress_bar=False,
                     threads_num=1,
                     domain="com",
-                    watch_with_interval=None,
-                    password_providers=[
-                        PasswordProvider.PARAMETER,
-                        PasswordProvider.KEYRING,
-                        PasswordProvider.CONSOLE,
-                    ],
-                    mfa_provider=MFAProvider.CONSOLE,
                 ),
                 [
                     UserConfig(
                         directory="abc",
                         username="u1",
-                        auth_only=False,
                         cookie_directory="~/.pyicloud",
-                        password=None,
                         sizes=[AssetVersionSize.ORIGINAL],
                         live_photo_size=LivePhotoVersionSize.ORIGINAL,
                         recent=None,
@@ -329,19 +215,8 @@ class CliTestCase(TestCase):
                         skip_live_photos=False,
                         xmp_sidecar=False,
                         force_size=False,
-                        auto_delete=False,
                         folder_structure="{:%Y/%m/%d}",
                         set_exif_datetime=False,
-                        smtp_username=None,
-                        smtp_password=None,
-                        smtp_host="smtp.gmail.com",
-                        smtp_port=587,
-                        smtp_no_tls=False,
-                        notification_email=None,
-                        notification_email_from=None,
-                        notification_script=None,
-                        delete_after_download=False,
-                        keep_icloud_recent_days=None,
                         dry_run=False,
                         keep_unicode_in_filenames=False,
                         live_photo_mov_filename_policy=LivePhotoMovFilenamePolicy.SUFFIX,
@@ -414,8 +289,6 @@ class CliTestCase(TestCase):
                 [
                     "--username",
                     "jdoe@gmail.com",
-                    "--password",
-                    "password1",
                     "--recent",
                     "0",
                     "--log-level",
@@ -441,8 +314,6 @@ class CliTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "0",
             ],
@@ -463,8 +334,6 @@ class CliTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "0",
                 "--log-level",
@@ -483,8 +352,6 @@ class CliTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "0",
                 "--log-level",
@@ -493,7 +360,8 @@ class CliTestCase(TestCase):
                 base_dir,
             ],
         )
-        self.assertEqual(result.exit_code, 2, "exit code")
+        # fails on the missing session before the directory is ever touched
+        self.assertEqual(result.exit_code, 1, "exit code")
 
         self.assertFalse(os.path.exists(base_dir), f"{base_dir} exists")
 
@@ -503,49 +371,10 @@ class CliTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "0",
                 "--log-level",
                 "info",
-            ],
-        )
-        self.assertEqual(result.exit_code, 2, "exit code")
-
-        self.assertFalse(os.path.exists(base_dir), f"{base_dir} exists")
-
-    def test_conflict_options_delete_after_download_and_auto_delete(self) -> None:
-        base_dir = os.path.join(self.fixtures_path, inspect.stack()[0][3])
-        result = run_main(
-            [
-                "--username",
-                "jdoe@gmail.com",
-                "--password",
-                "password1",
-                "-d",
-                "/tmp",
-                "--delete-after-download",
-                "--auto-delete",
-            ],
-        )
-        self.assertEqual(result.exit_code, 2, "exit code")
-
-        self.assertFalse(os.path.exists(base_dir), f"{base_dir} exists")
-
-    def test_conflict_options_delete_after_download_and_keep_icloud_recent_days(self) -> None:
-        base_dir = os.path.join(self.fixtures_path, inspect.stack()[0][3])
-        result = run_main(
-            [
-                "--username",
-                "jdoe@gmail.com",
-                "--password",
-                "password1",
-                "-d",
-                "/tmp",
-                "--delete-after-download",
-                "--keep-icloud-recent-days",
-                "1",
             ],
         )
         self.assertEqual(result.exit_code, 2, "exit code")

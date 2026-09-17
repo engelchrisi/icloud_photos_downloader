@@ -29,20 +29,6 @@ HEADER_DATA = {
 }
 
 
-class PyiCloudPasswordFilter(logging.Filter):
-    def __init__(self, password: str):
-        super().__init__(password)
-
-    @override
-    def filter(self, record: logging.LogRecord) -> bool:
-        message = record.getMessage()
-        if self.name in message:
-            record.msg = message.replace(self.name, "********")
-            record.args = []  # type: ignore[assignment]
-
-        return True
-
-
 class PyiCloudSession(Session):
     """iCloud session."""
 
@@ -64,11 +50,6 @@ class PyiCloudSession(Session):
         callee = inspect.stack()[2]
         module = inspect.getmodule(callee[0])
         request_logger = logging.getLogger(module.__name__).getChild("http")  # type: ignore[union-attr]
-        if (
-            self.service.password_filter
-            and self.service.password_filter not in request_logger.filters
-        ):
-            request_logger.addFilter(self.service.password_filter)
 
         request_logger.debug("%s %s %s", method, url, kwargs.get("data", ""))
 

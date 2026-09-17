@@ -1,7 +1,6 @@
 import copy
 from typing import TYPE_CHECKING, Any, Callable, Dict, Sequence, Tuple, TypeVar
 
-import keyring
 from requests import Response, Timeout
 from requests.exceptions import ConnectionError
 from urllib3.exceptions import NewConnectionError
@@ -11,69 +10,11 @@ from pyicloud_ipd.version_size import AssetVersionSize, VersionSize
 
 from .exceptions import (
     PyiCloudConnectionErrorException,
-    PyiCloudNoStoredPasswordAvailableException,
     PyiCloudServiceUnavailableException,
 )
 
 if TYPE_CHECKING:
     from pyicloud_ipd.services.photos import PhotoAsset
-
-KEYRING_SYSTEM = "pyicloud://icloud-password"
-
-
-# def get_password(username:str, interactive:bool=sys.stdout.isatty()) -> str:
-#     try:
-#         return get_password_from_keyring(username)
-#     except PyiCloudNoStoredPasswordAvailableException:
-#         if not interactive:
-#             raise
-
-#         return getpass.getpass(
-#             'Enter iCloud password for {username}: '.format(
-#                 username=username,
-#             )
-#         )
-
-
-def password_exists_in_keyring(username: str) -> bool:
-    try:
-        return get_password_from_keyring(username) is not None
-    except PyiCloudNoStoredPasswordAvailableException:
-        return False
-
-
-def get_password_from_keyring(username: str) -> str | None:
-    result = keyring.get_password(KEYRING_SYSTEM, username)
-    # if result is None:
-    #     raise PyiCloudNoStoredPasswordAvailableException(
-    #         "No pyicloud password for {username} could be found "
-    #         "in the system keychain.  Use the `--store-in-keyring` "
-    #         "command-line option for storing a password for this "
-    #         "username.".format(
-    #             username=username,
-    #         )
-    #     )
-
-    return result
-
-
-def store_password_in_keyring(username: str, password: str) -> None:
-    # if get_password_from_keyring(username) is not None:
-    #     # Apple can save only into empty keyring
-    #     return delete_password_in_keyring(username)
-    return keyring.set_password(
-        KEYRING_SYSTEM,
-        username,
-        password,
-    )
-
-
-def delete_password_in_keyring(username: str) -> None:
-    return keyring.delete_password(
-        KEYRING_SYSTEM,
-        username,
-    )
-
 
 def underscore_to_camelcase(word: str, initial_capital: bool = False) -> str:
     words = [x.capitalize() or "_" for x in word.split("_")]

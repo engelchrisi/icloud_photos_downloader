@@ -53,8 +53,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "5",
                 "--skip-videos",
@@ -149,8 +147,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
                     [
                         "--username",
                         "jdoe@gmail.com",
-                        "--password",
-                        "password1",
                         "--recent",
                         "4",
                         "--set-exif-datetime",
@@ -205,8 +201,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
                 [
                     "--username",
                     "jdoe@gmail.com",
-                    "--password",
-                    "password1",
                     "--recent",
                     "1",
                     "--skip-videos",
@@ -256,8 +250,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "1",
                 # '--skip-videos',
@@ -325,8 +317,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
                     [
                         "--username",
                         "jdoe@gmail.com",
-                        "--password",
-                        "password1",
                         "--live-photo-size",
                         "medium",
                         "--until-found",
@@ -398,8 +388,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
                 [
                     "--username",
                     "jdoe@gmail.com",
-                    "--password",
-                    "password1",
                     "--recent",
                     "1",
                     "--skip-videos",
@@ -455,8 +443,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
                         [
                             "--username",
                             "jdoe@gmail.com",
-                            "--password",
-                            "password1",
                             "--recent",
                             "1",
                             "--skip-videos",
@@ -516,8 +502,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
                         [
                             "--username",
                             "jdoe@gmail.com",
-                            "--password",
-                            "password1",
                             "--recent",
                             "1",
                             "--skip-videos",
@@ -576,8 +560,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
                         [
                             "--username",
                             "jdoe@gmail.com",
-                            "--password",
-                            "password1",
                             "--recent",
                             "1",
                             "--skip-videos",
@@ -608,8 +590,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
                     [
                         "--username",
                         "jdoe@gmail.com",
-                        "--password",
-                        "password1",
                         "--recent",
                         "3",
                         "--no-progress-bar",
@@ -692,8 +672,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
                         [
                             "--username",
                             "jdoe@gmail.com",
-                            "--password",
-                            "password1",
                             "--recent",
                             "1",
                             "--size",
@@ -748,8 +726,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
                         [
                             "--username",
                             "jdoe@gmail.com",
-                            "--password",
-                            "password1",
                             "--recent",
                             "1",
                             "--size",
@@ -805,8 +781,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
                     [
                         "--username",
                         "jdoe@gmail.com",
-                        "--password",
-                        "password1",
                         "--recent",
                         "1",
                         "--size",
@@ -859,8 +833,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
                 [
                     "--username",
                     "jdoe@gmail.com",
-                    "--password",
-                    "password1",
                     "--recent",
                     "1",
                     "--skip-live-photos",
@@ -915,8 +887,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
                 [
                     "--username",
                     "jdoe@gmail.com",
-                    "--password",
-                    "password1",
                     "--recent",
                     "1",
                     "--skip-live-photos",
@@ -969,8 +939,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
                 [
                     "--username",
                     "jdoe@gmail.com",
-                    "--password",
-                    "password1",
                     "--recent",
                     "1",
                     "--skip-live-photos",
@@ -1012,8 +980,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "1",
                 "--no-progress-bar",
@@ -1042,8 +1008,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "1",
                 "--no-progress-bar",
@@ -1091,8 +1055,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
                 [
                     "--username",
                     "jdoe@gmail.com",
-                    "--password",
-                    "password1",
                     "--recent",
                     "5",
                     "--skip-videos",
@@ -1143,8 +1105,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
                     [
                         "--username",
                         "jdoe@gmail.com",
-                        "--password",
-                        "password1",
                         "--recent",
                         "1",
                         "--skip-videos",
@@ -1193,8 +1153,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "1",
                 "--skip-videos",
@@ -1257,8 +1215,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
                     [
                         "--username",
                         "jdoe@gmail.com",
-                        "--password",
-                        "password1",
                         "--recent",
                         "1",
                         # "--set-exif-datetime",
@@ -1312,8 +1268,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
                     [
                         "--username",
                         "jdoe@gmail.com",
-                        "--password",
-                        "password1",
                         "--recent",
                         "1",
                         # "--set-exif-datetime",
@@ -1338,128 +1292,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
                 self.assertIn("All photos and videos have been downloaded", result.output)
                 assert result.exit_code == 0
 
-    def test_download_and_delete_after_name_id7(self) -> None:
-        base_dir = os.path.join(self.fixtures_path, inspect.stack()[0][3])
-
-        files_to_download = [("2018/07/31", "IMG_7409_QVk2Yyt.JPG")]
-
-        with mock.patch.object(piexif, "insert") as piexif_patched:
-            piexif_patched.side_effect = InvalidImageDataError
-            with mock.patch("icloudpd.exif_datetime.get_photo_exif") as get_exif_patched:
-                get_exif_patched.return_value = False
-                data_dir, result = run_icloudpd_test(
-                    self.assertEqual,
-                    self.root_path,
-                    base_dir,
-                    "listing_photos.yml",
-                    [],
-                    files_to_download,
-                    [
-                        "--username",
-                        "jdoe@gmail.com",
-                        "--password",
-                        "password1",
-                        "--recent",
-                        "1",
-                        "--skip-videos",
-                        "--skip-live-photos",
-                        "--no-progress-bar",
-                        "--file-match-policy",
-                        "name-id7",
-                        "--delete-after-download",
-                    ],
-                )
-
-                self.assertIn("Looking up all photos...", result.output)
-                self.assertIn(
-                    f"Downloading the first original photo to {data_dir} ...",
-                    result.output,
-                )
-                self.assertIn("Deleted IMG_7409_QVk2Yyt.JPG in iCloud", result.output)
-                self.assertIn("All photos have been downloaded", result.output)
-                # TODO assert cass.all_played
-                assert result.exit_code == 0
-
-    def test_download_and_not_delete_after_when_exists_name_id7(self) -> None:
-        base_dir = os.path.join(self.fixtures_path, inspect.stack()[0][3])
-
-        files_to_create = [("2018/07/31", "IMG_7409_QVk2Yyt.JPG", 1884695)]
-
-        with mock.patch.object(piexif, "insert") as piexif_patched:
-            piexif_patched.side_effect = InvalidImageDataError
-            with mock.patch("icloudpd.exif_datetime.get_photo_exif") as get_exif_patched:
-                get_exif_patched.return_value = False
-                data_dir, result = run_icloudpd_test(
-                    self.assertEqual,
-                    self.root_path,
-                    base_dir,
-                    "listing_photos.yml",
-                    files_to_create,
-                    [],
-                    [
-                        "--username",
-                        "jdoe@gmail.com",
-                        "--password",
-                        "password1",
-                        "--recent",
-                        "1",
-                        "--skip-videos",
-                        "--skip-live-photos",
-                        "--no-progress-bar",
-                        "--threads-num",
-                        "1",
-                        "--file-match-policy",
-                        "name-id7",
-                        "--delete-after-download",
-                    ],
-                )
-
-                self.assertIn("Looking up all photos...", result.output)
-                self.assertIn(
-                    f"Downloading the first original photo to {data_dir} ...",
-                    result.output,
-                )
-                self.assertNotIn("Deleted IMG_7409_QVk2Yyt.JPG in iCloud", result.output)
-                self.assertIn("All photos have been downloaded", result.output)
-                # TODO assert cass.all_played
-                assert result.exit_code == 0
-
-    def test_download_and_delete_after_fail_name_id7(self) -> None:
-        base_dir = os.path.join(self.fixtures_path, inspect.stack()[0][3])
-
-        data_dir, result = run_icloudpd_test(
-            self.assertEqual,
-            self.root_path,
-            base_dir,
-            "listing_photos_no_delete.yml",
-            [],
-            [],
-            [
-                "--username",
-                "jdoe@gmail.com",
-                "--password",
-                "password1",
-                "--recent",
-                "1",
-                "--skip-videos",
-                "--skip-live-photos",
-                "--no-progress-bar",
-                "--file-match-policy",
-                "name-id7",
-                "--delete-after-download",
-            ],
-        )
-
-        self.assertIn("Looking up all photos...", result.output)
-        self.assertIn(
-            f"Downloading the first original photo to {data_dir} ...",
-            result.output,
-        )
-        self.assertNotIn("Deleted IMG_7409_QVk2Yyt.JPG in iCloud", result.output)
-        self.assertIn("All photos have been downloaded", result.output)
-        # TODO assert cass.all_played
-        assert result.exit_code == 0
-
     def test_download_over_old_original_photos_name_id7(self) -> None:
         base_dir = os.path.join(self.fixtures_path, inspect.stack()[0][3])
 
@@ -1480,8 +1312,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "5",
                 "--skip-videos",
@@ -1546,8 +1376,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "5",
                 "--skip-videos",
@@ -1581,8 +1409,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
                     [
                         "--username",
                         "jdoe@gmail.com",
-                        "--password",
-                        "password1",
                         "--recent",
                         "1",
                         "--skip-videos",
@@ -1629,8 +1455,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
                     [
                         "--username",
                         "jdoe@gmail.com",
-                        "--password",
-                        "password1",
                         "--recent",
                         "1",
                         "--skip-videos",
@@ -1679,8 +1503,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
                 [
                     "--username",
                     "jdoe@gmail.com",
-                    "--password",
-                    "password1",
                     "--recent",
                     "1",
                     "--skip-videos",
@@ -1705,8 +1527,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "1",
                 "--skip-videos",
@@ -1736,59 +1556,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
 
         assert result.exit_code == 0
 
-    def test_download_after_delete_dry_run_name_id7(self) -> None:
-        base_dir = os.path.join(self.fixtures_path, inspect.stack()[0][3])
-
-        def raise_response_error(
-            a0_: logging.Logger, a1_: PyiCloudService, a2_: PhotoAsset
-        ) -> NoReturn:
-            raise Exception("Unexpected call to delete_photo")
-
-        with mock.patch.object(piexif, "insert") as piexif_patched:
-            piexif_patched.side_effect = InvalidImageDataError
-            with mock.patch("icloudpd.exif_datetime.get_photo_exif") as get_exif_patched:
-                get_exif_patched.return_value = False
-                with mock.patch("icloudpd.base.delete_photo") as df_patched:
-                    df_patched.side_effect = raise_response_error
-
-                    data_dir, result = run_icloudpd_test(
-                        self.assertEqual,
-                        self.root_path,
-                        base_dir,
-                        "listing_photos.yml",
-                        [],
-                        [],
-                        [
-                            "--username",
-                            "jdoe@gmail.com",
-                            "--password",
-                            "password1",
-                            "--recent",
-                            "1",
-                            "--skip-videos",
-                            "--skip-live-photos",
-                            "--no-progress-bar",
-                            "--dry-run",
-                            "--file-match-policy",
-                            "name-id7",
-                            "--delete-after-download",
-                        ],
-                    )
-
-                    self.assertIn("Looking up all photos...", result.output)
-                    self.assertIn(
-                        f"Downloading the first original photo to {data_dir} ...",
-                        result.output,
-                    )
-                    self.assertIn(
-                        "[DRY RUN] Would delete IMG_7409_QVk2Yyt.JPG in iCloud",
-                        result.output,
-                    )
-                    self.assertIn("All photos have been downloaded", result.output)
-                    # TDOO self.assertEqual(
-                    #     cass.all_played, False, "All mocks played")
-                    self.assertEqual(result.exit_code, 0, "Exit code")
-
     def test_download_raw_photos_name_id7(self) -> None:
         base_dir = os.path.join(self.fixtures_path, inspect.stack()[0][3])
 
@@ -1806,8 +1573,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "1",
                 "--skip-videos",
@@ -1848,8 +1613,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "1",
                 "--skip-videos",
@@ -1898,8 +1661,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "1",
                 "--skip-videos",
@@ -1946,8 +1707,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "1",
                 "--skip-videos",
@@ -1996,8 +1755,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "1",
                 "--skip-videos",
@@ -2046,8 +1803,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "1",
                 "--skip-videos",
@@ -2100,8 +1855,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "5",
                 "--skip-videos",
@@ -2140,8 +1893,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "5",
                 "--skip-videos",
@@ -2178,8 +1929,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "5",
                 "--skip-videos",
@@ -2213,8 +1962,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "5",
                 "--skip-videos",
@@ -2302,8 +2049,6 @@ class DownloadPhotoNameIDTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "1",
                 "--skip-videos",

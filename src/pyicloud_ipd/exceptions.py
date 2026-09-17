@@ -56,10 +56,6 @@ class PyiCloud2SARequiredException(PyiCloudException):
         message = f"Two-step authentication required for account: {apple_id}"
         super().__init__(message)
 
-
-class PyiCloudNoStoredPasswordAvailableException(PyiCloudException):
-    """iCloud no stored password exception."""
-
     pass
 
 
@@ -90,10 +86,6 @@ class PyiCloud2SARequiredError(PyiCloudException):
     def __init__(self, url: str):
         message = f"Two-step authentication required for {url}"
         super().__init__(message)
-
-
-class NoStoredPasswordAvailable(PyiCloudException):
-    pass
 
 
 class PyiCloudServiceNotActivatedErrror(PyiCloudAPIResponseError):

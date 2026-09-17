@@ -29,8 +29,6 @@ class ListingAlbumsTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--list-albums",
                 "--no-progress-bar",
             ],

@@ -61,8 +61,6 @@ class Issue1220OnlyPrintFilenamesDeduplicationBugTest(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "3",
                 "--only-print-filenames",  # This should prevent ALL downloads

@@ -49,8 +49,6 @@ class DownloadLivePhotoTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "3",
                 "--no-progress-bar",
@@ -86,8 +84,6 @@ class DownloadLivePhotoTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "3",
                 "--no-progress-bar",
@@ -128,8 +124,6 @@ class DownloadLivePhotoTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "3",
                 "--no-progress-bar",

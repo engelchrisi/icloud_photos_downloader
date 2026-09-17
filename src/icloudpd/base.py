@@ -2,20 +2,14 @@
 """Main script that uses Click to parse command-line arguments"""
 
 import datetime
-import getpass
 import itertools
 import json
 import logging
 import os
-import subprocess
 import sys
-import time
 import typing
-import urllib
 from functools import partial, singledispatch
-from logging import Logger
 from multiprocessing import freeze_support
-from threading import Thread
 from typing import (
     Any,
     Callable,
@@ -40,17 +34,11 @@ from tzlocal import get_localzone
 from foundation.core import compose, identity, map_, partial_1_1
 from icloudpd import download, exif_datetime
 from icloudpd.authentication import authenticator
-from icloudpd.autodelete import autodelete_photos
 from icloudpd.config import GlobalConfig, UserConfig
 from icloudpd.counter import Counter
-from icloudpd.email_notifications import send_2sa_notification
-from icloudpd.filename_policies import build_filename_with_policies, create_filename_builder
+from icloudpd.filename_policies import create_filename_builder
 from icloudpd.log_level import LogLevel
-from icloudpd.mfa_provider import MFAProvider
-from icloudpd.password_provider import PasswordProvider
 from icloudpd.paths import local_download_path, remove_unicode_chars
-from icloudpd.server import serve_app
-from icloudpd.status import Status, StatusExchange
 from icloudpd.string_helpers import parse_timestamp_or_timedelta, truncate_middle
 from icloudpd.xmp_sidecar import generate_xmp_file
 from pyicloud_ipd.asset_version import add_suffix_to_filename, calculate_version_filename
@@ -74,9 +62,7 @@ from pyicloud_ipd.services.photos import (
 )
 from pyicloud_ipd.utils import (
     disambiguate_filenames,
-    get_password_from_keyring,
     size_to_suffix,
-    store_password_in_keyring,
 )
 from pyicloud_ipd.version_size import AssetVersionSize, LivePhotoVersionSize
 
@@ -122,67 +108,6 @@ def lp_filename_original(filename: str) -> str:
 
     replace_with_mov = replace_extension(".MOV")
     return replace_with_mov(filename)
-
-
-def ask_password_in_console(_user: str) -> str | None:
-    return getpass.getpass(f"iCloud Password for {_user}:")
-
-
-def get_password_from_webui(
-    logger: Logger, status_exchange: StatusExchange, _user: str
-) -> str | None:
-    """Request two-factor authentication through Webui."""
-    if not status_exchange.replace_status(Status.NO_INPUT_NEEDED, Status.NEED_PASSWORD):
-        logger.error("Expected NO_INPUT_NEEDED, but got something else")
-        return None
-
-    # wait for input
-    while True:
-        status = status_exchange.get_status()
-        if status == Status.NEED_PASSWORD:
-            time.sleep(1)
-        else:
-            break
-    if status_exchange.replace_status(Status.SUPPLIED_PASSWORD, Status.CHECKING_PASSWORD):
-        password = status_exchange.get_payload()
-        if not password:
-            logger.error("Internal error: did not get password for SUPPLIED_PASSWORD status")
-            status_exchange.replace_status(
-                Status.CHECKING_PASSWORD, Status.NO_INPUT_NEEDED
-            )  # TODO Error
-            return None
-        return password
-
-    return None  # TODO
-
-
-def update_password_status_in_webui(status_exchange: StatusExchange, _u: str, _p: str) -> None:
-    status_exchange.replace_status(Status.CHECKING_PASSWORD, Status.NO_INPUT_NEEDED)
-
-
-def update_auth_error_in_webui(status_exchange: StatusExchange, error: str) -> bool:
-    return status_exchange.set_error(error)
-
-
-# def get_click_param_by_name(_name: str, _params: List[Parameter]) -> Optional[Parameter]:
-#     _with_password = [_p for _p in _params if _name in _p.name]
-#     if len(_with_password) == 0:
-#         return None
-#     return _with_password[0]
-
-
-def dummy_password_writter(_u: str, _p: str) -> None:
-    pass
-
-
-def keyring_password_writter(logger: Logger) -> Callable[[str, str], None]:
-    def _intern(username: str, password: str) -> None:
-        try:
-            store_password_in_keyring(username, password)
-        except Exception:
-            logger.warning("Password was not saved to keyring")
-
-    return _intern
 
 
 def skip_created_generator(
@@ -236,156 +161,22 @@ def create_logger(config: GlobalConfig) -> logging.Logger:
 def run_with_configs(global_config: GlobalConfig, user_configs: Sequence[UserConfig]) -> int:
     """Run the application with the new configuration system"""
 
-    # Create shared logger
     logger = create_logger(global_config)
-
-    # Create shared status exchange for web server and progress tracking
-    shared_status_exchange = StatusExchange()
-
-    # Check if any user needs web server (webui for MFA or passwords)
-    needs_web_server = global_config.mfa_provider == MFAProvider.WEBUI or any(
-        provider == PasswordProvider.WEBUI for provider in global_config.password_providers
-    )
-
-    # Start web server ONCE if needed, outside all loops
-    if needs_web_server:
-        logger.info("Starting web server for WebUI authentication...")
-        server_thread = Thread(target=serve_app, daemon=True, args=[logger, shared_status_exchange])
-        server_thread.start()
-
-    # Check if we're in watch mode
-    watch_interval = global_config.watch_with_interval
-
-    if not watch_interval:
-        # No watch mode - process each user once and exit
-        return _process_all_users_once(global_config, user_configs, logger, shared_status_exchange)
-    else:
-        # Watch mode - infinite loop processing all users, then wait
-        skip_bar = not os.environ.get("FORCE_TQDM") and (
-            global_config.only_print_filenames
-            or global_config.no_progress_bar
-            or not sys.stdout.isatty()
-        )
-
-        while True:
-            # Process all user configs in this iteration
-            result = _process_all_users_once(
-                global_config, user_configs, logger, shared_status_exchange
-            )
-
-            # If any critical operation (auth-only, list commands) succeeded, exit
-            if result == 0:
-                first_user = user_configs[0] if user_configs else None
-                if first_user and (
-                    first_user.auth_only or first_user.list_albums or first_user.list_libraries
-                ):
-                    return 0
-
-            # Wait for the watch interval before next iteration
-            # Clear current user during wait period to avoid misleading UI
-            shared_status_exchange.clear_current_user()
-            logger.info(f"Waiting for {watch_interval} sec...")
-            interval: Sequence[int] = range(1, watch_interval)
-            iterable: Sequence[int] = (
-                interval
-                if skip_bar
-                else typing.cast(
-                    Sequence[int],
-                    tqdm(
-                        iterable=interval,
-                        desc="Waiting...",
-                        ascii=True,
-                        leave=False,
-                        dynamic_ncols=True,
-                    ),
-                )
-            )
-            for counter in iterable:
-                # Update shared status exchange with wait progress
-                shared_status_exchange.get_progress().waiting = watch_interval - counter
-                if shared_status_exchange.get_progress().resume:
-                    shared_status_exchange.get_progress().reset()
-                    break
-                time.sleep(1)
-
-
-def _process_all_users_once(
-    global_config: GlobalConfig,
-    user_configs: Sequence[UserConfig],
-    logger: logging.Logger,
-    shared_status_exchange: StatusExchange,
-) -> int:
-    """Process all user configs once (used by both single run and watch mode)"""
-
-    # Set global config and all user configs to status exchange once, before processing
-    shared_status_exchange.set_global_config(global_config)
-    shared_status_exchange.set_user_configs(user_configs)
 
     for user_config in user_configs:
         with logging_redirect_tqdm():
-            # Use shared status exchange instead of creating new ones per user
-            status_exchange = shared_status_exchange
-
-            # Set up password providers with proper function replacements
-            password_providers_dict: Dict[
-                PasswordProvider, Tuple[Callable[[str], str | None], Callable[[str, str], None]]
-            ] = {}
-
-            for provider in global_config.password_providers:
-                if provider == PasswordProvider.WEBUI:
-                    password_providers_dict[provider] = (
-                        partial(get_password_from_webui, logger, status_exchange),
-                        partial(update_password_status_in_webui, status_exchange),
-                    )
-                elif provider == PasswordProvider.CONSOLE:
-                    password_providers_dict[provider] = (
-                        ask_password_in_console,
-                        dummy_password_writter,
-                    )
-                elif provider == PasswordProvider.KEYRING:
-                    password_providers_dict[provider] = (
-                        get_password_from_keyring,
-                        keyring_password_writter(logger),
-                    )
-                elif provider == PasswordProvider.PARAMETER:
-
-                    def create_constant_password_provider(
-                        password: str | None,
-                    ) -> Callable[[str], str | None]:
-                        def password_provider(_username: str) -> str | None:
-                            return password
-
-                        return password_provider
-
-                    password_providers_dict[provider] = (
-                        create_constant_password_provider(user_config.password),
-                        dummy_password_writter,
-                    )
-
-            # Only set current user - global config and user configs are already set
-            status_exchange.set_current_user(user_config.username)
-
-            # Web server is now started once outside the user loop - no need to start it here
-
-            # Set up filename processors directly since we don't have click context
-            # filename_cleaner was removed from services and should be passed explicitly to functions that need it
-
-            # Set up live photo filename generator directly
             lp_filename_generator = (
                 lp_filename_original
                 if user_config.live_photo_mov_filename_policy == LivePhotoMovFilenamePolicy.ORIGINAL
                 else lp_filename_concatinator
             )
 
-            # Set up filename cleaner based on user preference
             filename_cleaner = build_filename_cleaner(user_config.keep_unicode_in_filenames)
 
-            # Create filename builder with pre-configured policy and cleaner
             filename_builder = create_filename_builder(
                 user_config.file_match_policy, filename_cleaner
             )
 
-            # Set up function builders
             passer = partial(
                 where_builder,
                 logger,
@@ -419,82 +210,19 @@ def _process_all_users_once(
                 else (lambda _s, _c, _p: False)
             )
 
-            notificator = partial(
-                notificator_builder,
-                logger,
-                user_config.username,
-                user_config.smtp_username,
-                user_config.smtp_password,
-                user_config.smtp_host,
-                user_config.smtp_port,
-                user_config.smtp_no_tls,
-                user_config.notification_email,
-                user_config.notification_email_from,
-                str(user_config.notification_script) if user_config.notification_script else None,
-            )
-
-            # Use core_single_run since we've disabled watch at this level
             logger.info(f"Processing user: {user_config.username}")
             result = core_single_run(
                 logger,
-                status_exchange,
                 global_config,
                 user_config,
-                password_providers_dict,
                 passer,
                 downloader,
-                notificator,
-                lp_filename_generator,
             )
 
-            # If any user config fails and we're not in watch mode, return the error code
             if result != 0:
-                if not global_config.watch_with_interval:
-                    return result
-                else:
-                    # In watch mode, log error and continue with next user
-                    logger.error(
-                        f"Error processing user {user_config.username}, continuing with next user..."
-                    )
+                return result
 
     return 0
-
-
-def notificator_builder(
-    logger: logging.Logger,
-    username: str,
-    smtp_username: str | None,
-    smtp_password: str | None,
-    smtp_host: str,
-    smtp_port: int,
-    smtp_no_tls: bool,
-    notification_email: str | None,
-    notification_email_from: str | None,
-    notification_script: str | None,
-) -> None:
-    try:
-        if notification_script is not None:
-            logger.debug("Executing notification script...")
-            subprocess.call([notification_script])
-        else:
-            pass
-        if smtp_username is not None or notification_email is not None:
-            send_2sa_notification(
-                logger,
-                username,
-                smtp_username,
-                smtp_password,
-                smtp_host,
-                smtp_port,
-                smtp_no_tls,
-                notification_email,
-                notification_email_from,
-            )
-        else:
-            pass
-    except Exception as error:
-        logger.error("Notification of the required MFA failed")
-        logger.debug(error)
 
 
 @singledispatch
@@ -805,56 +533,6 @@ def download_builder(
     return success
 
 
-def delete_photo(
-    logger: logging.Logger,
-    library_object: PhotoLibrary,
-    photo: PhotoAsset,
-    filename_builder: Callable[[PhotoAsset], str],
-) -> None:
-    """Delete a photo from the iCloud account."""
-    clean_filename_local = filename_builder(photo)
-    logger.debug("Deleting %s in iCloud...", clean_filename_local)
-    url = (
-        f"{library_object.service_endpoint}/records/modify?"
-        f"{urllib.parse.urlencode(library_object.params)}"
-    )
-    post_data = json.dumps(
-        {
-            "atomic": True,
-            "desiredKeys": ["isDeleted"],
-            "operations": [
-                {
-                    "operationType": "update",
-                    "record": {
-                        "fields": {"isDeleted": {"value": 1}},
-                        "recordChangeTag": photo._asset_record["recordChangeTag"],
-                        "recordName": photo._asset_record["recordName"],
-                        "recordType": "CPLAsset",
-                    },
-                }
-            ],
-            "zoneID": library_object.zone_id,
-        }
-    )
-    library_object.session.post(url, data=post_data, headers={"Content-type": "application/json"})
-    logger.info("Deleted %s in iCloud", clean_filename_local)
-
-
-def delete_photo_dry_run(
-    logger: logging.Logger,
-    library_object: PhotoLibrary,
-    photo: PhotoAsset,
-    filename_builder: Callable[[PhotoAsset], str],
-) -> None:
-    """Dry run for deleting a photo from the iCloud"""
-    filename = filename_builder(photo)
-    logger.info(
-        "[DRY RUN] Would delete %s in iCloud library %s",
-        filename,
-        library_object.zone_id["zoneName"],
-    )
-
-
 def dump_responses(dumper: Callable[[Any], None], responses: List[Mapping[str, Any]]) -> None:
     # dump captured responses
     for entry in responses:
@@ -874,16 +552,10 @@ def asset_type_skip_message(
 
 def core_single_run(
     logger: logging.Logger,
-    status_exchange: StatusExchange,
     global_config: GlobalConfig,
     user_config: UserConfig,
-    password_providers_dict: Dict[
-        PasswordProvider, Tuple[Callable[[str], str | None], Callable[[str, str], None]]
-    ],
     passer: Callable[[PhotoAsset], bool],
     downloader: Callable[[PyiCloudService, Counter, PhotoAsset], bool],
-    notificator: Callable[[], None],
-    lp_filename_generator: Callable[[str], str],
 ) -> int:
     """Download all iCloud photos to a local directory for a single execution (no watch loop)"""
 
@@ -902,14 +574,7 @@ def core_single_run(
             icloud = authenticator(
                 logger,
                 global_config.domain,
-                {
-                    provider.value: functions
-                    for provider, functions in password_providers_dict.items()
-                },
-                global_config.mfa_provider,
-                status_exchange,
                 user_config.username,
-                notificator,
                 partial(append_response, captured_responses),
                 user_config.cookie_directory,
                 os.environ.get("CLIENT_ID"),
@@ -921,11 +586,7 @@ def core_single_run(
             # turn off response capture
             icloud.response_observer = None
 
-            if user_config.auth_only:
-                logger.info("Authentication completed successfully")
-                return 0
-
-            elif user_config.list_libraries:
+            if user_config.list_libraries:
                 library_names = (
                     icloud.photos.private_libraries.keys() | icloud.photos.shared_libraries.keys()
                 )
@@ -1059,13 +720,7 @@ def core_single_run(
                                 and counter.value() >= user_config.until_found
                             )
 
-                        status_exchange.get_progress().photos_count = (
-                            0 if photos_count is None else photos_count
-                        )
                         photos_counter = 0
-
-                        now = datetime.datetime.now(get_localzone())
-                        # photos_iterator = iter(photos_enumerator)
 
                         download_photo = partial(downloader, icloud)
 
@@ -1077,76 +732,10 @@ def core_single_run(
                                         user_config.until_found,
                                     )
                                     break
-                                # item = next(photos_iterator)
-                                should_delete = False
-
                                 passer_result = passer(item)
-                                download_result = passer_result and download_photo(
-                                    consecutive_files_found, item
-                                )
-                                if download_result and user_config.delete_after_download:
-                                    should_delete = True
-
-                                if (
-                                    passer_result
-                                    and user_config.keep_icloud_recent_days is not None
-                                ):
-                                    created_date = item.created.astimezone(get_localzone())
-                                    age_days = (now - created_date).days
-                                    logger.debug(f"Created date: {created_date}")
-                                    logger.debug(
-                                        f"Keep iCloud recent days: {user_config.keep_icloud_recent_days}"
-                                    )
-                                    logger.debug(f"Age days: {age_days}")
-                                    if age_days < user_config.keep_icloud_recent_days:
-                                        # Create filename cleaner for debug message
-                                        filename_cleaner_for_debug = build_filename_cleaner(
-                                            user_config.keep_unicode_in_filenames
-                                        )
-                                        debug_filename = build_filename_with_policies(
-                                            user_config.file_match_policy,
-                                            filename_cleaner_for_debug,
-                                            item,
-                                        )
-                                        logger.debug(
-                                            "Skipping deletion of %s as it is within the keep_icloud_recent_days period (%d days old)",
-                                            debug_filename,
-                                            age_days,
-                                        )
-                                    else:
-                                        should_delete = True
-
-                                if should_delete:
-                                    # Create filename cleaner and builder for delete operations
-                                    filename_cleaner_for_delete = build_filename_cleaner(
-                                        user_config.keep_unicode_in_filenames
-                                    )
-                                    filename_builder_for_delete = create_filename_builder(
-                                        user_config.file_match_policy, filename_cleaner_for_delete
-                                    )
-                                    if user_config.dry_run:
-                                        delete_photo_dry_run(
-                                            logger,
-                                            library_object,
-                                            item,
-                                            filename_builder_for_delete,
-                                        )
-                                    else:
-                                        delete_photo(
-                                            logger,
-                                            library_object,
-                                            item,
-                                            filename_builder_for_delete,
-                                        )
-
-                                    # retrier(delete_local, error_handler)
-                                    photo_album.increment_offset(-1)
+                                passer_result and download_photo(consecutive_files_found, item)
 
                                 photos_counter += 1
-                                status_exchange.get_progress().photos_counter = photos_counter
-
-                                if status_exchange.get_progress().cancel:
-                                    break
 
                             except StopIteration:
                                 break
@@ -1156,73 +745,23 @@ def core_single_run(
                         else:
                             pass
 
-                        if status_exchange.get_progress().cancel:
-                            logger.info("Iteration was cancelled")
-                            status_exchange.get_progress().photos_last_message = (
-                                "Iteration was cancelled"
-                            )
+                        if user_config.skip_photos or user_config.skip_videos:
+                            photo_video_phrase = "photos" if user_config.skip_videos else "videos"
                         else:
-                            if user_config.skip_photos or user_config.skip_videos:
-                                photo_video_phrase = (
-                                    "photos" if user_config.skip_videos else "videos"
-                                )
-                            else:
-                                photo_video_phrase = "photos and videos"
-                            message = f"All {photo_video_phrase} have been downloaded"
-                            logger.info(message)
-                            status_exchange.get_progress().photos_last_message = message
-                        status_exchange.get_progress().reset()
-
-                    if user_config.auto_delete:
-                        autodelete_photos(
-                            logger,
-                            user_config.dry_run,
-                            library_object,
-                            user_config.folder_structure,
-                            directory,
-                            user_config.sizes,
-                            lp_filename_generator,
-                            user_config.align_raw,
-                        )
-                    else:
-                        pass
-        except PyiCloudFailedLoginException as error:
-            logger.info(error)
+                            photo_video_phrase = "photos and videos"
+                        logger.info(f"All {photo_video_phrase} have been downloaded")
+        except (PyiCloudFailedLoginException, PyiCloudFailedMFAException) as error:
+            logger.error(str(error))
             dump_responses(logger.debug, captured_responses)
-            if PasswordProvider.WEBUI in global_config.password_providers:
-                update_auth_error_in_webui(status_exchange, str(error))
-                continue
-            else:
-                return 1
-        except PyiCloudFailedMFAException as error:
-            logger.info(str(error))
-            dump_responses(logger.debug, captured_responses)
-            if global_config.mfa_provider == MFAProvider.WEBUI:
-                update_auth_error_in_webui(status_exchange, str(error))
-                continue
-            else:
-                return 1
+            return 1
         except (
             PyiCloudServiceNotActivatedException,
             PyiCloudServiceUnavailableException,
             PyiCloudAPIResponseException,
             PyiCloudConnectionErrorException,
         ) as error:
-            logger.info(error)
+            logger.error(str(error))
             dump_responses(logger.debug, captured_responses)
-            # webui will display error and wait for password again
-            if (
-                PasswordProvider.WEBUI in global_config.password_providers
-                or global_config.mfa_provider == MFAProvider.WEBUI
-            ):
-                if update_auth_error_in_webui(status_exchange, str(error)):
-                    # retry if it was during auth
-                    continue
-                else:
-                    pass
-            else:
-                pass
-            # In single run mode, return error after webui retry attempts
             return 1
         except (
             ChunkedEncodingError,

@@ -28,8 +28,6 @@ class ListingLibraryTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--list-libraries",
                 "--no-progress-bar",
             ],
@@ -53,8 +51,6 @@ class ListingLibraryTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--library",
                 "doesnotexist",
                 "--no-progress-bar",

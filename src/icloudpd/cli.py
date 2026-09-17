@@ -1,7 +1,6 @@
 import argparse
 import copy
 import datetime
-import pathlib
 import sys
 from itertools import dropwhile
 from operator import eq, not_
@@ -15,8 +14,6 @@ from foundation.string_utils import lower
 from icloudpd.base import ensure_tzinfo, run_with_configs
 from icloudpd.config import GlobalConfig, UserConfig
 from icloudpd.log_level import LogLevel
-from icloudpd.mfa_provider import MFAProvider
-from icloudpd.password_provider import PasswordProvider
 from icloudpd.string_helpers import parse_timestamp_or_timedelta, splitlines
 from pyicloud_ipd.file_match import FileMatchPolicy
 from pyicloud_ipd.live_photo_mov_filename_policy import LivePhotoMovFilenamePolicy
@@ -41,9 +38,6 @@ def add_options_for_user(parser: argparse.ArgumentParser) -> argparse.ArgumentPa
         "--directory",
         metavar="DIRECTORY",
         help="Local directory to use for downloads",
-    )
-    cloned.add_argument(
-        "--auth-only", action="store_true", help="Create/update cookie and session tokens only."
     )
     cloned.add_argument(
         "--cookie-directory",
@@ -125,12 +119,6 @@ def add_options_for_user(parser: argparse.ArgumentParser) -> argparse.ArgumentPa
         action="store_true",
     )
     cloned.add_argument(
-        "--auto-delete",
-        help='Scan the "Recently Deleted" folder and delete any files found there. '
-        + "(If you restore the photo in iCloud, it will be downloaded again.)",
-        action="store_true",
-    )
-    cloned.add_argument(
         "--folder-structure",
         help="Folder structure. If set to `none`, all photos will be placed into the download directory. Default: %(default)s",
         default="{:%Y/%m/%d}",
@@ -142,70 +130,9 @@ def add_options_for_user(parser: argparse.ArgumentParser) -> argparse.ArgumentPa
         action="store_true",
     )
 
-    cloned.add_argument(
-        "--smtp-username",
-        help="SMTP username for sending email notifications when two-step authentication expires.",
-        default=None,
-    )
-    cloned.add_argument(
-        "--smtp-password",
-        help="SMTP password for sending email notifications when two-step authentication expires.",
-        default=None,
-    )
-    cloned.add_argument(
-        "--smtp-host",
-        help="SMTP server host for notifications",
-        default="smtp.gmail.com",
-    )
-    cloned.add_argument(
-        "--smtp-port",
-        help="SMTP server port. Default: %(default)i",
-        type=int,
-        default=587,
-    )
-    cloned.add_argument(
-        "--smtp-no-tls",
-        help="Disable TLS for SMTP (TLS is required for Gmail)",
-        action="store_true",
-    )
-    cloned.add_argument(
-        "--notification-email",
-        help="Email address where you would like to receive email notifications. "
-        "Default: SMTP username",
-        default=None,
-        type=str,
-    )
-    cloned.add_argument(
-        "--notification-email-from",
-        help="Email address from which you would like to receive email notifications. "
-        "Default: SMTP username or notification-email",
-        default=None,
-        type=str,
-    )
-    cloned.add_argument(
-        "--notification-script",
-        type=pathlib.Path,
-        help="Path to external script to run when two-factor authentication expires.",
-        default=None,
-    )
     deprecated_kwargs: dict[str, Any] = {}
     if sys.version_info >= (3, 13):
         deprecated_kwargs["deprecated"] = True
-    cloned.add_argument(
-        "--delete-after-download",
-        help="Delete the photo/video after downloading it."
-        + ' The deleted items will appear in "Recently Deleted".'
-        + " Therefore, should not be combined with --auto-delete option.",
-        action="store_true",
-        **deprecated_kwargs,
-    )
-    cloned.add_argument(
-        "--keep-icloud-recent-days",
-        help="Keep photos newer than this many days in iCloud. Delete the rest. "
-        + "If set to 0, all photos will be deleted from iCloud.",
-        type=int,
-        default=None,
-    )
     cloned.add_argument(
         "--dry-run",
         help="Do not modify the local system or iCloud",
@@ -267,27 +194,7 @@ def add_user_option(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         help="Apple ID email address. Starts a new configuration group.",
         type=lower,
     )
-    cloned.add_argument(
-        "-p",
-        "--password",
-        help="iCloud password for the account if `--password-provider` specifies `parameter`",
-        default=None,
-        type=str,
-    )
     return cloned
-
-
-def parse_mfa_provider(provider: str) -> MFAProvider:
-    provider_map = {
-        "console": MFAProvider.CONSOLE,
-        "webui": MFAProvider.WEBUI,
-    }
-
-    normalized_provider = lower(provider)
-    if normalized_provider in provider_map:
-        return provider_map[normalized_provider]
-    else:
-        raise ValueError(f"Only `console` and `webui` are supported, but `{provider}` was provided")
 
 
 def add_global_options(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
@@ -335,28 +242,6 @@ def add_global_options(parser: argparse.ArgumentParser) -> argparse.ArgumentPars
         help="Which iCloud root domain to use. Use 'cn' for mainland China. Default: %(default)s",
         choices=["com", "cn"],
         default="com",
-    )
-    cloned.add_argument(
-        "--watch-with-interval",
-        help="Run downloading in an infinite cycle, waiting the specified seconds between runs",
-        type=int,
-        default=None,
-    )
-    cloned.add_argument(
-        "--password-provider",
-        dest="password_providers",
-        help="Specify password providers to check in the given order. Default: [`parameter`, `keyring`, `console`]",
-        choices=["console", "keyring", "parameter", "webui"],
-        default=None,
-        action="append",
-        type=lower,
-    )
-    cloned.add_argument(
-        "--mfa-provider",
-        help="Specify where to get the MFA code from",
-        choices=["console", "webui"],
-        default="console",
-        type=lower,
     )
     return cloned
 
@@ -431,9 +316,7 @@ def format_help() -> str:
 def map_to_config(user_ns: argparse.Namespace) -> UserConfig:
     return UserConfig(
         username=user_ns.username,
-        password=user_ns.password,
         directory=user_ns.directory,
-        auth_only=user_ns.auth_only,
         cookie_directory=user_ns.cookie_directory,
         sizes=list(
             map_(AssetVersionSize, foundation.unique_sequence(user_ns.sizes or ["original"]))
@@ -449,19 +332,8 @@ def map_to_config(user_ns: argparse.Namespace) -> UserConfig:
         skip_live_photos=user_ns.skip_live_photos,
         xmp_sidecar=user_ns.xmp_sidecar,
         force_size=user_ns.force_size,
-        auto_delete=user_ns.auto_delete,
         folder_structure=user_ns.folder_structure,
         set_exif_datetime=user_ns.set_exif_datetime,
-        smtp_username=user_ns.smtp_username,
-        smtp_password=user_ns.smtp_password,
-        smtp_host=user_ns.smtp_host,
-        smtp_port=user_ns.smtp_port,
-        smtp_no_tls=user_ns.smtp_no_tls,
-        notification_email=user_ns.notification_email,
-        notification_email_from=user_ns.notification_email_from,
-        notification_script=user_ns.notification_script,
-        delete_after_download=user_ns.delete_after_download,
-        keep_icloud_recent_days=user_ns.keep_icloud_recent_days,
         dry_run=user_ns.dry_run,
         keep_unicode_in_filenames=user_ns.keep_unicode_in_filenames,
         live_photo_mov_filename_policy=LivePhotoMovFilenamePolicy(
@@ -518,16 +390,6 @@ def parse(args: Sequence[str]) -> Tuple[GlobalConfig, Sequence[UserConfig]]:
             no_progress_bar=global_ns.no_progress_bar,
             threads_num=global_ns.threads_num,
             domain=global_ns.domain,
-            watch_with_interval=global_ns.watch_with_interval,
-            password_providers=list(
-                map_(
-                    PasswordProvider,
-                    foundation.unique_sequence(
-                        global_ns.password_providers or ["parameter", "keyring", "console"]
-                    ),
-                )
-            ),
-            mfa_provider=MFAProvider(global_ns.mfa_provider),
         ),
         user_nses,
     )
@@ -563,48 +425,13 @@ def cli() -> int:
         elif [
             user_ns
             for user_ns in user_nses
-            if not user_ns.list_albums
-            and not user_ns.list_libraries
-            and not user_ns.directory
-            and not user_ns.auth_only
+            if not user_ns.list_albums and not user_ns.list_libraries and not user_ns.directory
         ]:
             print(
-                "--auth-only, --directory, --list-libraries, or --list-albums are required for each configuration"
+                "--directory, --list-libraries, or --list-albums are required for each configuration"
             )
             return 2
 
-        elif [
-            user_ns
-            for user_ns in user_nses
-            if user_ns.auto_delete and user_ns.delete_after_download
-        ]:
-            print(
-                "--auto-delete and --delete-after-download are mutually exclusive per configuration"
-            )
-            return 2
-
-        elif [
-            user_ns
-            for user_ns in user_nses
-            if user_ns.keep_icloud_recent_days and user_ns.delete_after_download
-        ]:
-            print(
-                "--keep-icloud-recent-days and --delete-after-download should not be used together in one configuration"
-            )
-            return 2
-
-        elif global_ns.watch_with_interval and (
-            [
-                user_ns
-                for user_ns in user_nses
-                if user_ns.list_albums or user_ns.auth_only or user_ns.list_libraries
-            ]
-            or global_ns.only_print_filenames
-        ):
-            print(
-                "--watch-with-interval is not compatible with --list-albums, --list-libraries, --only-print-filenames, and --auth-only"
-            )
-            return 2
         else:
             return run_with_configs(global_ns, user_nses)
 

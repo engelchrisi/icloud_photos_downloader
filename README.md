@@ -1,76 +1,87 @@
-# !!!! [Looking for MAINTAINER for this project](https://github.com/icloud-photos-downloader/icloud_photos_downloader/issues/1305) !!!!
+# icloudpd — stripped, read-only, session-only fork
 
-# iCloud Photos Downloader [![Quality Checks](https://github.com/icloud-photos-downloader/icloud_photos_downloader/workflows/Quality%20Checks/badge.svg)](https://github.com/icloud-photos-downloader/icloud_photos_downloader/actions/workflows/quality-checks.yml) [![Build and Package](https://github.com/icloud-photos-downloader/icloud_photos_downloader/workflows/Produce%20Artifacts/badge.svg)](https://github.com/icloud-photos-downloader/icloud_photos_downloader/actions/workflows/produce-artifacts.yml) [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+A minimal fork of [icloud_photos_downloader](https://github.com/icloud-photos-downloader/icloud_photos_downloader)
+(MIT, forked at **v1.32.3**), reduced to a single job: **download photos and videos from iCloud
+to a local directory.**
 
-- A command-line tool to download all your iCloud photos.
-- Works on Linux, Windows, and macOS; laptop, desktop, and NAS
-- Available as an executable for direct downloading and through package managers/ecosystems ([Docker](https://icloud-photos-downloader.github.io/icloud_photos_downloader/install.html#docker), [PyPI](https://icloud-photos-downloader.github.io/icloud_photos_downloader/install.html#pypi), [AUR](https://icloud-photos-downloader.github.io/icloud_photos_downloader/install.html#aur), [npm](https://icloud-photos-downloader.github.io/icloud_photos_downloader/install.html#npm))
-- Developed and maintained by volunteers (we are always looking for [help](CONTRIBUTING.md)). 
+It is built to run in an isolated, network-restricted container that holds no Apple credentials.
+See `proxmox/icloud-import/` in the `hw_docu` repo for the deployment plan and the strip logbook.
 
-See [Documentation](https://icloud-photos-downloader.github.io/icloud_photos_downloader/) for more details. Also, check [Issues](https://github.com/icloud-photos-downloader/icloud_photos_downloader/issues)
+## What this fork cannot do
 
-We aim to release new versions once a week (Friday), if there is something worth delivering.
+These are removed at the source level, not merely disabled by a flag:
 
-## iCloud Prerequisites
+| Removed | Why |
+|---|---|
+| Interactive login, SRP password auth, 2FA/2SA, SMS codes, keyring | The password must never reach this code. Sessions are created elsewhere. |
+| Delete, auto-delete, delete-after-download | Nothing may write to iCloud. The only CloudKit write endpoint (`records/modify`) is gone. |
+| Every non-Photos iCloud service (Drive/Documents, Contacts, Calendar, Find My, Mail, Notes, Reminders) | Only the photos library is in scope. |
+| Web UI / daemon (Flask + waitress), watch mode | No long-running service, no listening socket. |
+| Email/SMTP and script notifications | No outbound channels beyond Apple. |
 
-To make iCloud Photo Downloader work, ensure the iCloud account is configured with the following settings, otherwise Apple Servers will return an ACCESS_DENIED error:
+Consequences: dependencies drop from 14 to 9 (no Flask, waitress, keyring, keyrings-alt, srp),
+and the only hosts the code can contact are `setup.icloud.com`, `www.icloud.com` (plus `.cn`
+regional variants) and the CloudKit host Apple returns during session validation. The login host
+`idmsa.apple.com` is no longer referenced at all.
 
-- **Enable Access iCloud Data on the Web:** On your iPhone / iPad, enable `Settings > Apple ID > iCloud > Access iCloud Data on the Web`
-- **Disable Advanced Data Protection:** On your iPhone /iPad disable `Settings > Apple ID > iCloud > Advanced Data Protection`
+Every request to iCloud is a read: `records/query`, `internal/records/query/batch` and
+`zones/list`, plus a streaming `GET` per asset. The CloudKit container is hardcoded to
+`com.apple.photos.cloud`.
 
+## Authentication
 
-## Install and Run
+This build cannot log in. It reuses a session created by the **unmodified upstream** tool on a
+trusted machine:
 
-There are three ways to run `icloudpd`:
-1. Download executable for your platform from the GitHub [Release](https://github.com/icloud-photos-downloader/icloud_photos_downloader/releases/tag/v1.32.3) and run it
-1. Use package manager to install, update, and, in some cases, run ([Docker](https://icloud-photos-downloader.github.io/icloud_photos_downloader/install.html#docker), [PyPI](https://icloud-photos-downloader.github.io/icloud_photos_downloader/install.html#pypi), [AUR](https://icloud-photos-downloader.github.io/icloud_photos_downloader/install.html#aur), [npm](https://icloud-photos-downloader.github.io/icloud_photos_downloader/install.html#npm))
-1. Build and run from the source
+```sh
+# on a trusted machine, with upstream icloudpd installed
+icloudpd --username you@example.com --auth-only --cookie-directory ./session
+```
 
-See [Documentation](https://icloud-photos-downloader.github.io/icloud_photos_downloader/install.html) for more details
-
-## Features
-
-<!-- start features -->
-
-- Three modes of operation:
-  - **Copy** - download new photos from iCloud (default mode)
-  - **Sync** - download new photos from iCloud and delete local files that were removed in iCloud (`--auto-delete` option)
-  - **Move** - download new photos from iCloud and delete photos in iCloud (`--keep-icloud-recent-days` option)
-- Support for Live Photos (image and video as separate files) and RAW images (including RAW+JPEG)
-- Automatic de-duplication of photos with the same name
-- One time download and an option to monitor for iCloud changes continuously (`--watch-with-interval` option)
-- Optimizations for incremental runs (`--until-found` and `--recent` options)
-- Photo metadata (EXIF) updates (`--set-exif-datetime` option)
-- ... and many more (use `--help` option to get full list)
-
-<!-- end features -->
-
-## Experimental Mode
-
-Some changes are added to the experimental mode before they graduate into the main package. [Details](EXPERIMENTAL.md)
+Copy the two resulting files (`<username>` cookiejar and `<username>.session`) into this build's
+`--cookie-directory`. If the session and trust token are both expired, this build exits with
+status 1 and an explanatory message rather than prompting for anything.
 
 ## Usage
 
-To keep your iCloud photo collection synchronized to your local system:
-
+```sh
+icloudpd \
+  --username you@example.com \
+  --cookie-directory /path/to/session \
+  --directory /path/to/output \
+  --skip-created-before 2026-09-01 \
+  --folder-structure "{:%Y/%m}" \
+  --log-level info \
+  --no-progress-bar
 ```
-icloudpd --directory /data --username my@email.address --watch-with-interval 3600
+
+`--only-print-filenames` lists what would be downloaded without downloading it.
+
+## Tests
+
+```sh
+python -m venv .venv && .venv/bin/pip install -e . pytest mock freezegun vcrpy pytest-timeout
+.venv/bin/python -m pytest tests/ -q
 ```
 
-> [!IMPORTANT]
-> It is `icloudpd`, not `icloud` executable
+The suite runs against recorded HTTP fixtures and a session fixture, so it exercises the
+session-reuse path with no network and no credentials. Tests asserting timestamps assume the host
+is on UTC; on other timezones six of them fail, as they also do upstream.
 
-> [!TIP]
-> Synchronization logic can be adjusted with command-line parameters. Run `icloudpd --help` to get full list.
+## License and attribution
 
-To independently create and authorize a session (and complete 2SA/2FA validation if needed) on your local system:
+This is a **modified version** of iCloud Photos Downloader, not the original. Files have been
+deleted and functions removed; see the strip logbook for the exact changes.
 
-```
-icloudpd --username my@email.address --password my_password --auth-only
-```
-> [!TIP]
-> This feature can also be used to check and verify that the session is still authenticated. 
+Licensed under the MIT License, unchanged from upstream. The original copyright notice and
+permission notice are retained verbatim in [LICENSE.md](LICENSE.md):
 
-## Contributing
+> Copyright (c) 2016 Nathan Broadbent
 
-Want to contribute to iCloud Photos Downloader? Awesome! Check out the [contributing guidelines](CONTRIBUTING.md) to get involved.
+The MIT license permits modification and redistribution provided that notice is kept intact,
+which it is. This fork claims no copyright over the upstream code and adds no further
+restrictions. Upstream project:
+<https://github.com/icloud-photos-downloader/icloud_photos_downloader>.
+
+The package version is marked `1.32.3+strip.1` so it cannot be mistaken for upstream's released
+`1.32.3`. This fork is not published to PyPI, npm, Docker Hub or any other registry.

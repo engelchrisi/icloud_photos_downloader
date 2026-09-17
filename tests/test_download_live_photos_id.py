@@ -37,8 +37,6 @@ class DownloadLivePhotoNameIDTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "3",
                 "--no-progress-bar",
@@ -74,8 +72,6 @@ class DownloadLivePhotoNameIDTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "3",
                 "--no-progress-bar",
@@ -116,8 +112,6 @@ class DownloadLivePhotoNameIDTestCase(TestCase):
             [
                 "--username",
                 "jdoe@gmail.com",
-                "--password",
-                "password1",
                 "--recent",
                 "3",
                 "--no-progress-bar",
