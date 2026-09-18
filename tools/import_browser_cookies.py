@@ -67,6 +67,46 @@ REQUIRED_COOKIES = (
     "X-APPLE-WEBAUTH-VALIDATE",
 )
 
+# Protected Cloud Storage: a signed-in icloud.com session carries one of these
+# per service -- Photos, but also Documents, Mail, Notes, News, Safari, Sharing
+# and Events. They are key-access material for that service's encrypted data,
+# so importing the whole set would give the downloader the means to reach
+# iCloud content that is explicitly out of scope. Only the photo-related ones
+# are kept; the rest are dropped with a note.
+#
+# This is a defence in depth rather than the primary control: the stripped
+# package has no code paths to those services at all. But the jar is a file on
+# disk in a container, and it should not contain access material for data
+# nobody intends to touch.
+PCS_PREFIX = "X-APPLE-WEBAUTH-PCS-"
+PCS_ALLOWED = (
+    PCS_PREFIX + "Photos",
+    PCS_PREFIX + "Cloudkit",  # the CloudKit API the photo library is read through
+)
+
+
+def drop_out_of_scope_cookies(cookies: dict[str, str]) -> tuple[dict[str, str], list[str]]:
+    """Strip per-service PCS cookies for services other than Photos.
+
+    >>> kept, dropped = drop_out_of_scope_cookies(
+    ...     {
+    ...         "X-APPLE-WEBAUTH-TOKEN": "t",
+    ...         "X-APPLE-WEBAUTH-PCS-Photos": "p",
+    ...         "X-APPLE-WEBAUTH-PCS-Mail": "m",
+    ...     }
+    ... )
+    >>> sorted(kept), dropped
+    (['X-APPLE-WEBAUTH-PCS-Photos', 'X-APPLE-WEBAUTH-TOKEN'], ['X-APPLE-WEBAUTH-PCS-Mail'])
+    """
+    kept: dict[str, str] = {}
+    dropped: list[str] = []
+    for name, value in cookies.items():
+        if name.startswith(PCS_PREFIX) and name not in PCS_ALLOWED:
+            dropped.append(name)
+        else:
+            kept[name] = value
+    return kept, dropped
+
 
 def cookiejar_path(cookie_directory: str, username: str) -> str:
     """Mirror PyiCloudService.cookiejar_path so icloudpd finds the jar."""
@@ -167,6 +207,14 @@ def main(argv: list[str]) -> int:
 
     if not cookies:
         raise SystemExit("No cookies given. Use --from-cookie-header, --from-json or --cookie.")
+
+    cookies, dropped = drop_out_of_scope_cookies(cookies)
+    if dropped:
+        print(
+            f"dropped {len(dropped)} out-of-scope PCS cookies (not photos): "
+            f"{', '.join(sorted(name[len(PCS_PREFIX) :] for name in dropped))}",
+            file=sys.stderr,
+        )
 
     missing_required = [name for name in REQUIRED_COOKIES if name not in cookies]
     if missing_required:
