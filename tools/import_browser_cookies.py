@@ -19,9 +19,12 @@ cookies.json maps cookie names to values, e.g.
     {
       "X-APPLE-WEBAUTH-LOGIN": "v=1:t=...",
       "X-APPLE-WEBAUTH-VALIDATE": "v=1:t=...",
-      "X-APPLE-WEBAUTH-HSA-LOGIN": "v=2:t=...",
+      "X-APPLE-WEBAUTH-HSA-TRUST": "...",
       "X-APPLE-UNIQUE-CLIENT-ID": "..."
     }
+
+Copy whatever the browser actually shows for that domain; the exact set varies
+(Apple has renamed these), and every cookie in the jar is sent regardless.
 
 Prefer the JSON file over --cookie on the command line: values are bearer
 credentials and a command line ends up in your shell history. Delete the JSON
@@ -40,13 +43,28 @@ from http.cookiejar import Cookie, LWPCookieJar
 
 DOMAIN = ".icloud.com"
 
-# Names icloudpd's session actually sends. Others are accepted with a warning,
-# since Apple has changed this set before.
+# The cookies a signed-in icloud.com session holds. Anything else is accepted
+# with a note rather than rejected: the whole jar is sent to Apple regardless of
+# what is listed here, and Apple does change this set. Observed 2026-09-18:
+# X-APPLE-WEBAUTH-HSA-TRUST in place of the X-APPLE-WEBAUTH-HSA-LOGIN that
+# upstream's fixtures show, so both are listed as expected.
 KNOWN_COOKIES = (
+    "X-APPLE-WEBAUTH-TOKEN",
     "X-APPLE-WEBAUTH-LOGIN",
     "X-APPLE-WEBAUTH-VALIDATE",
+    "X-APPLE-WEBAUTH-HSA-TRUST",
     "X-APPLE-WEBAUTH-HSA-LOGIN",
+    "X-APPLE-WEBAUTH-USER",
     "X-APPLE-UNIQUE-CLIENT-ID",
+    "X-APPLE-DS-WEB-SESSION-TOKEN",
+)
+
+# Required. X-APPLE-WEBAUTH-TOKEN is the one Apple names explicitly: without it
+# /validate answers 421 with "Missing X-APPLE-WEBAUTH-TOKEN cookie", which is
+# easy to misread as a wrong password or an expired session.
+REQUIRED_COOKIES = (
+    "X-APPLE-WEBAUTH-TOKEN",
+    "X-APPLE-WEBAUTH-VALIDATE",
 )
 
 
@@ -88,6 +106,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="JSON file mapping cookie names to values (preferred: keeps secrets out of shell history)",
     )
     parser.add_argument(
+        "--from-cookie-header",
+        help="File containing a raw 'Cookie:' request header copied from devtools -> Network. "
+        "Easiest and least error-prone: it is exactly the set the browser sends.",
+    )
+    parser.add_argument(
         "--cookie",
         nargs=2,
         action="append",
@@ -98,8 +121,36 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def parse_cookie_header(text: str) -> dict[str, str]:
+    """Parse a raw 'Cookie:' request header into name -> value.
+
+    Values are split on the first '=' only, since several Apple cookie values
+    are base64 and contain '=' padding.
+
+    >>> parse_cookie_header("Cookie: a=1; b=v=2:t=x==")
+    {'a': '1', 'b': 'v=2:t=x=='}
+    """
+    text = text.strip()
+    if text.lower().startswith("cookie:"):
+        text = text.split(":", 1)[1]
+    cookies: dict[str, str] = {}
+    for pair in text.split(";"):
+        pair = pair.strip()
+        if not pair:
+            continue
+        if "=" not in pair:
+            print(f"note: skipping malformed cookie fragment {pair!r}", file=sys.stderr)
+            continue
+        name, value = pair.split("=", 1)
+        cookies[name.strip()] = value.strip()
+    return cookies
+
+
 def collect_cookies(args: argparse.Namespace) -> dict[str, str]:
     cookies: dict[str, str] = {}
+    if args.from_cookie_header:
+        with open(args.from_cookie_header, encoding="utf-8-sig") as handle:
+            cookies.update(parse_cookie_header(handle.read()))
     if args.from_json:
         with open(args.from_json, encoding="utf-8") as handle:
             loaded = json.load(handle)
@@ -115,11 +166,15 @@ def main(argv: list[str]) -> int:
     cookies = collect_cookies(args)
 
     if not cookies:
-        raise SystemExit("No cookies given. Use --from-json or --cookie.")
+        raise SystemExit("No cookies given. Use --from-cookie-header, --from-json or --cookie.")
 
-    missing = [name for name in KNOWN_COOKIES if name not in cookies]
-    if missing:
-        print(f"warning: expected cookies not supplied: {', '.join(missing)}", file=sys.stderr)
+    missing_required = [name for name in REQUIRED_COOKIES if name not in cookies]
+    if missing_required:
+        raise SystemExit(
+            f"Refusing to write a jar without: {', '.join(missing_required)}. "
+            "Authentication cannot succeed without these, and a jar that exists but "
+            "does not work is harder to diagnose than a missing one."
+        )
     unexpected = [name for name in cookies if name not in KNOWN_COOKIES]
     if unexpected:
         print(f"note: passing through additional cookies: {', '.join(unexpected)}", file=sys.stderr)
@@ -131,6 +186,17 @@ def main(argv: list[str]) -> int:
     for name, value in cookies.items():
         jar.set_cookie(make_cookie(name, value))
     jar.save(ignore_discard=True, ignore_expires=True)
+
+    # LWPCookieJar.save writes in text mode, so on Windows it emits CRLF. The
+    # jar is typically imported here and then used on Linux, where the LWP
+    # parser strips only the "\n" -- the surviving "\r" lands inside the last
+    # attribute of each cookie. Normalise so the file is platform-independent.
+    with open(path, "rb") as handle:
+        raw = handle.read()
+    if b"\r\n" in raw:
+        with open(path, "wb") as handle:
+            handle.write(raw.replace(b"\r\n", b"\n"))
+
     os.chmod(path, 0o600)
 
     print(f"Wrote {len(cookies)} cookies to {path}")
