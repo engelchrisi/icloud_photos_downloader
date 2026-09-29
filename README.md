@@ -7,6 +7,18 @@ to a local directory.**
 It is built to run in an isolated, network-restricted container that holds no Apple credentials.
 See `proxmox/icloud-import/` in the `hw_docu` repo for the deployment plan and the strip logbook.
 
+## Deploying / updating
+
+The target container has no pip and no PyPI access, so it never `pip install`s this fork. A
+sibling repo (`hw_docu`) builds a pip-free bundle from a checkout of this one and pushes it:
+
+```sh
+./build-bundle.sh /path/to/icloud_photos_downloader --push
+```
+
+Run from `hw_docu/proxmox/icloud-import/build-bundle.sh`, with a checkout of this fork as its
+argument. See that script and `00-plan.md` in the same folder for what it does and why.
+
 ## What this fork cannot do
 
 These are removed at the source level, not merely disabled by a flag:

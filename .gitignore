@@ -27,3 +27,6 @@ node_modules/
 .cookies/
 
 .claude/
+
+# local deploy tooling -- not for the public repo
+/scripts/deploy.sh
